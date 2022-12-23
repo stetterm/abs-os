@@ -207,3 +207,47 @@ impl fmt::Write for Writer {
   }
 }
 
+// Test ensures that a single print
+// macro call will not panic.
+#[test_case]
+fn test_println_simple() {
+  println!("test_println_simple output");
+}
+
+// Test ensures that many print
+// statements will not cause a 
+// panic.
+#[test_case]
+fn test_println_many() {
+  for _ in 0..200 {
+    println!("test_println_simple output");
+  }
+}
+
+// Prints out a single-line string
+// and ensures that the characters
+// in the VGA buffer match the characters
+// passed to the println! macro.
+#[test_case]
+fn test_println_output() {
+  let s = "Here are some words in a string for testing";
+  println!("{}", s);
+  for (i, c) in s.chars().enumerate() {
+    let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
+    assert_eq!(char::from(screen_char.ascii_character), c);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
