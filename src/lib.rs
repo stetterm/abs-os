@@ -13,7 +13,7 @@ pub mod vga_buffer;
 
 use core::panic::PanicInfo;
 
-///! TEST RUNNER CONFIGURATION
+//// TEST RUNNER CONFIGURATION
 
 /// Trait that test runners
 /// can use to run a test
@@ -116,13 +116,24 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
   }
 }
 
-///! INITIALIZE FAULT HANDLING SEGMENTS
+//// INITIALIZE NECESSARY OS STRUCTURES
 
 pub fn init() {
   gdt::init();
   interrupts::init_idt();
+  unsafe { interrupts::PICS.lock().initialize() };
+  x86_64::instructions::interrupts::enable();
 }
 
+
+
+//// HALT FUNCTION
+
+pub fn hlt_loop() -> ! {
+  loop {
+    x86_64::instructions::hlt();
+  }
+}
 
 
 

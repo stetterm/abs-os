@@ -25,14 +25,16 @@ pub extern "C" fn _start() -> ! {
 
   // Infinite recursion will
   // cause a stack overflow
-  fn stack_overflow() {
-    stack_overflow();
-  }
+  //fn stack_overflow() {
+  //  stack_overflow();
+  //}
 
-  stack_overflow();
+  //stack_overflow();
 
-  #[cfg(test)]
-  test_main();
+  abs_os::hlt_loop();
+
+  //#[cfg(test)]
+  //test_main();
 
   loop {}
 }
