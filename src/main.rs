@@ -44,7 +44,7 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
   println!("{}", info);
-  loop {}
+  abs_os::hlt_loop();
 }
 
 // Panic function for main calls

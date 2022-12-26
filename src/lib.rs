@@ -26,7 +26,7 @@ pub trait Testable {
   /// implemented to print
   /// testing information and
   /// run the actual test.
-  fn run(&self) -> ();
+  fn run(&self);
 }
 
 // This implements the ability
@@ -70,7 +70,8 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
   serial_println!("[failed]\n");
   serial_println!("Error: {}\n", info);
   exit_qemu(QemuExitCode::Failure);
-  loop {}
+  
+  hlt_loop();
 }
 
 // Lib used for testing needs its
@@ -86,7 +87,8 @@ pub extern "C" fn _start() -> ! {
 
   // Run the tests
   test_main();
-  loop {}
+
+  hlt_loop();
 }
 
 // Panic function called when a
