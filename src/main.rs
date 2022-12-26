@@ -23,20 +23,12 @@ pub extern "C" fn _start() -> ! {
   // table necessary for handling exceptions.
   abs_os::init();
 
-  // Infinite recursion will
-  // cause a stack overflow
-  //fn stack_overflow() {
-  //  stack_overflow();
-  //}
 
-  //stack_overflow();
+  #[cfg(test)]
+  test_main();
+
 
   abs_os::hlt_loop();
-
-  //#[cfg(test)]
-  //test_main();
-
-  loop {}
 }
 
 // Called on panic
