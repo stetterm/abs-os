@@ -23,11 +23,15 @@ pub extern "C" fn _start() -> ! {
   // table necessary for handling exceptions.
   abs_os::init();
 
+  use x86_64::registers::control::Cr3;
 
+  let (level_4_page_table, _) = Cr3::read();
+  println!("Level 4 page table at: {:?}", level_4_page_table.start_address());
+   
   #[cfg(test)]
   test_main();
 
-
+  println!("abs_os did not crash");
   abs_os::hlt_loop();
 }
 

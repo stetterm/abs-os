@@ -23,6 +23,7 @@ lazy_static! {
       idt.double_fault.set_handler_fn(double_fault_handler)
           .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
     }
+    idt.page_fault.set_handler_fn(page_fault_handler);
     idt[InterruptIndex::Timer.as_usize()]
         .set_handler_fn(timer_interrupt_handler);
     idt[InterruptIndex::Keyboard.as_usize()]
@@ -68,6 +69,24 @@ extern "x86-interrupt" fn double_fault_handler(
   panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
 }
 
+// PAGE FAULT
+
+use x86_64::structures::idt::PageFaultErrorCode;
+use crate::hlt_loop;
+
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode)
+{
+  use x86_64::registers::control::Cr2;
+
+  println!("EXCEPTION: PAGE FAULT");
+  println!("Accessed Address: {:?}", Cr2::read());
+  println!("Error Code: {:?}", error_code);
+  println!("{:#?}", stack_frame);
+  hlt_loop();
+}
+
 //// HARDWARE INTERRUPTS
 
 // PIC PIN REMAPPING
@@ -109,7 +128,7 @@ use crate::print;
 extern "x86-interrupt" fn timer_interrupt_handler(
     _stack_frame: InterruptStackFrame)
 {
-  print!(".");
+  //print!(".");
 
   unsafe {
     PICS.lock()
