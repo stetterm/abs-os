@@ -40,9 +40,15 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     BootInfoFrameAllocator::init(&boot_info.memory_map)
   };
 
+  // Create a mapping using some large 
+  // virtual address (0xdeadbeaf000)
   let page = Page::containing_address(VirtAddr::new(0xdeadbeaf000));
   memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
- 
+
+  // Write at the VGA buffer offset
+  // into the mapping that was created.
+  // This will effectively print out
+  // the value in write_volatile to the screen.
   let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
   unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
 
