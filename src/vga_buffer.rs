@@ -68,6 +68,7 @@ struct Buffer {
 // execution
 pub struct Writer {
   column_position: usize,
+  row_position: usize,
   color_code: ColorCode,
   buffer: &'static mut Buffer,
 }
@@ -84,6 +85,7 @@ use spin::Mutex;
 lazy_static! {
   pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
     column_position: 0,
+    row_position: BUFFER_HEIGHT - 1,
     color_code: ColorCode::new(Color::White, Color::Black),
     buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
   });
@@ -139,7 +141,7 @@ impl Writer {
           self.new_line();
         }
 
-        let row = BUFFER_HEIGHT - 1;
+        let row = self.row_position;
         let col = self.column_position;
         let color_code = self.color_code;
 
@@ -165,6 +167,13 @@ impl Writer {
         // Print all printable characters
         0x20..=0x7e | b'\n' => self.write_byte(byte),
 
+        // If the character is 0x08,
+        // do a backspace.
+        // TODO Make backspace go up one row
+        // if the cursor is at the far left 
+        // of the "screen"
+        0x08 => self.backspace(),
+
         // Print 0x7e if not printable
         _ => self.write_byte(0xfe),
       }
@@ -176,14 +185,45 @@ impl Writer {
   /// the rows to the row above
   /// and clearing the last row.
   fn new_line(&mut self) {
+
+    // Copy each row to the row
+    // above it, stopping before
+    // the bottom row.
     for row in 1..BUFFER_HEIGHT {
       for col in 0..BUFFER_WIDTH {
         let character = self.buffer.chars[row][col].read();
         self.buffer.chars[row - 1][col].write(character);
       }
     }
+
+    // Clear the bottom row.
     self.clear_row(BUFFER_HEIGHT - 1);
+
+    // Set the cursor position to
+    // the start of the new line.
     self.column_position = 0;
+    if self.row_position < BUFFER_HEIGHT - 1 {
+      self.row_position += 1;
+    }
+  }
+
+  /// Function called to delete a
+  /// character at the specified
+  /// row and column position in
+  /// the VGA buffer. This is 
+  /// accomplished by writing a 
+  /// space character in place
+  /// of the existing character.
+  ///
+  /// row:      row position
+  /// col:      column position
+  fn delete_char(&mut self, row: usize, col: usize) {
+    self.buffer.chars[row][col].write(
+      ScreenChar {
+        ascii_character: b' ',
+        color_code: self.color_code,
+      }
+    );
   }
 
   /// Clear the provided row
@@ -192,13 +232,45 @@ impl Writer {
   /// row:      row number to clear
   fn clear_row(&mut self, row: usize) {
     for col in 0..BUFFER_WIDTH {
-      self.buffer.chars[row][col].write(
-        ScreenChar {
-          ascii_character: b' ',
-          color_code: self.color_code,
-        }
-      );
+      self.delete_char(row, col);
     }
+  }
+
+  /// Called when a backspace character
+  /// is entered. Deletes the previous
+  /// character and moves the cursor 
+  /// position back. If the cursor is
+  /// at the beginning of the first line,
+  /// nothing happens.
+  fn backspace(&mut self) {
+
+    // If the cursor is at the start
+    // of the line, it needs to wrap
+    // around to the end of the 
+    // previous line.
+    if self.column_position == 0 {
+      if self.row_position == 0 {
+        return;
+      }
+     
+      // Move the cursor to the end
+      // of the previous line and 
+      // delete the character
+      self.row_position -= 1;
+      self.column_position = BUFFER_WIDTH - 1;
+
+    } else {
+      
+      // If the cursor is not at
+      // the start of the line, 
+      // move it back one column position
+      self.column_position -= 1;
+    }
+
+    // Delete the character at the cursor position
+    self.delete_char(
+        self.row_position, self.column_position
+    );
   }
 }
 
