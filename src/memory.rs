@@ -2,7 +2,7 @@
 //! frames of memory and the page tables
 //! used by processses and threads.
 
-// INITIALIZE LEVEL 4 TABLE WITH PHYSADDR
+// INITIALIZE LEVEL 4 TABLE
 
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
@@ -79,7 +79,7 @@ unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
   
   /// Allocates a new frame in the
   /// physical address space. If
-  /// a new page table mus{t be created,
+  /// a new page table must be created,
   /// the physical frame is returned
   /// wrapped in Some. Otherwise
   /// None is returned.
@@ -122,6 +122,7 @@ impl BootInfoFrameAllocator {
       // Get regions of memory that
       // are usable
       .filter(|r| r.region_type == MemoryRegionType::Usable)
+      
       // Create a range iterator for
       // each of the available
       // regions of memory

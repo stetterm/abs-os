@@ -98,6 +98,9 @@ fn many_boxes() {
   }
 }
 
+// Tests that memory is able to
+// be preserved through many
+// allocations and frees in a loop.
 #[test_case]
 fn many_boxes_long_lived() {
   let long_lived = Box::new(1);
