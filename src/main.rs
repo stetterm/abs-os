@@ -10,8 +10,11 @@
 #![no_main] // Disable rust entry point/runtime
 #![no_std]  // Disable rust standard lib
 
+extern crate alloc;
+
 use abs_os::println;
 
+use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 
@@ -19,9 +22,12 @@ entry_point!(kernel_main);
 
 // Main entry point function
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-  use abs_os::memory::{self, BootInfoFrameAllocator};
+  use abs_os::{
+      allocator,
+      memory::{self, BootInfoFrameAllocator}
+  };
   use x86_64::{
-      structures::paging::{Page, Translate},
+      //structures::paging::Page,
       VirtAddr,
   };
 
@@ -38,19 +44,37 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
   let mut mapper = unsafe { memory::init(phys_mem_offset) };
   let mut frame_allocator = unsafe {
     BootInfoFrameAllocator::init(&boot_info.memory_map)
-  };
+  }; 
 
-  // Create a mapping using some large 
-  // virtual address (0xdeadbeaf000)
-  let page = Page::containing_address(VirtAddr::new(0xdeadbeaf000));
-  memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
+  allocator::init_heap(&mut mapper, &mut frame_allocator)
+      .expect("failed to initialize heap");
 
-  // Write at the VGA buffer offset
-  // into the mapping that was created.
-  // This will effectively print out
-  // the value in write_volatile to the screen.
-  let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
-  unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+  // Allocate an integer on
+  // the heap and print out
+  // the pointer value
+  let x = Box::new(41);
+  println!("x at {:p}", x);
+
+  // Allocate a vector in
+  // the heap with 500 elements
+  let mut vec = Vec::new();
+  for i in 0..500 {
+    vec.push(i);
+  }
+  println!("vec at {:p}", vec.as_slice());
+
+  // Created a reference counted
+  // pointer around a new vector
+  // and clone the reference to
+  // another variable. Drop the
+  // original variable, and the
+  // reference count should be
+  // down to 1.
+  let reference_counted = Rc::new(vec![1, 2, 3]);
+  let cloned_reference = reference_counted.clone();
+  println!("current reference count is {}", Rc::strong_count(&cloned_reference));
+  core::mem::drop(reference_counted);
+  println!("reference count is {} now", Rc::strong_count(&cloned_reference));
 
   #[cfg(test)]
   test_main();
