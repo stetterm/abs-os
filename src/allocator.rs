@@ -2,7 +2,9 @@
 //! heap memory allocator.
 
 use alloc::alloc::{GlobalAlloc, Layout};
+use bump::BumpAllocator;
 use core::ptr::null_mut;
+use linked_list::LinkedListAllocator;
 use linked_list_allocator::LockedHeap;
 use x86_64::{
     structures::paging::{
@@ -11,29 +13,13 @@ use x86_64::{
     VirtAddr,
 };
 
-///// Dummy implementation of allocator
-///// that returns a null pointer when
-///// the allocator tries to allocate 
-///// memory, and panics when an attempt
-///// to deallocate occurs. This effectively
-///// causes all allocations to fail.
-//pub struct Dummy;
-//
-//unsafe impl GlobalAlloc for Dummy {
-//  unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-//    null_mut()
-//  }
-//
-//  unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-//    panic!("dealloc should never be called");
-//  }
-//}
-//
-//#[global_allocator]
-//static ALLOCATOR: Dummy = Dummy;
+pub mod bump;
+pub mod linked_list;
 
+// Static global memory allocator
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static ALLOCATOR: Locked<LinkedListAllocator> = 
+    Locked::new(LinkedListAllocator::new());
 
 /// Constants used for setting
 /// the range for heap allocations
@@ -86,6 +72,35 @@ pub fn init_heap(
   Ok(())
 }
 
+/// Wrapper around mutex so traits can be
+/// implemented on the A type wrapped in
+/// a mutex.
+pub struct Locked<A> {
+  inner: spin::Mutex<A>,
+}
+
+impl<A> Locked<A> {
+
+  /// Wrap inner A type in mutex
+  pub const fn new(inner: A) -> Self {
+    Locked {
+      inner: spin::Mutex::new(inner),
+    }
+  }
+
+  /// Acquire the mutex lock on the inner type
+  pub fn lock(&self) -> spin::MutexGuard<A> {
+    self.inner.lock()
+  }
+}
+
+// ADDRESS ALIGNMENT FOR ALLOCATOR
+
+/// Aligns the memory address to the next
+/// highest byte-aligned address.
+fn align_up(addr: usize, align: usize) -> usize {
+  (addr + align - 1) & !(align - 1)
+}
 
 
 
