@@ -10,7 +10,7 @@
 #![no_main] // Disable rust entry point/runtime
 #![no_std]  // Disable rust standard lib
 
- extern crate alloc;
+extern crate alloc;
 
 use abs_os::println;
 
