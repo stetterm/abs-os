@@ -16,9 +16,9 @@ use core::panic::PanicInfo;
 // operating system kernel.
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-  test_main();
-  
-  loop {}
+    test_main();
+
+    loop {}
 }
 
 // When a panic is called from
@@ -27,7 +27,7 @@ pub extern "C" fn _start() -> ! {
 // function defined in src/lib.rs.
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-  abs_os::test_panic_handler(info);
+    abs_os::test_panic_handler(info);
 }
 
 use abs_os::println;
@@ -36,5 +36,5 @@ use abs_os::println;
 // after the system has booted.
 #[test_case]
 fn test_println() {
-  println!("test_println output");
+    println!("test_println output");
 }

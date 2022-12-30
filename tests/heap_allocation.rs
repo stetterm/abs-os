@@ -10,11 +10,8 @@
 extern crate alloc;
 
 use abs_os::allocator::HEAP_SIZE;
-use alloc::{
-    boxed::Box,
-    vec::Vec,
-};
-use bootloader::{BootInfo, entry_point};
+use alloc::{boxed::Box, vec::Vec};
+use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 
 entry_point!(main);
@@ -24,38 +21,35 @@ entry_point!(main);
 /// It sets up the OS to test
 /// memory allocations.
 fn main(boot_info: &'static BootInfo) -> ! {
-  use abs_os::{
-    allocator,
-    memory::{self, BootInfoFrameAllocator},
-  };
-  use x86_64::VirtAddr;
+    use abs_os::{
+        allocator,
+        memory::{self, BootInfoFrameAllocator},
+    };
+    use x86_64::VirtAddr;
 
-  // Initialize the OS and the
-  // frame allocator with the
-  // physical memory offset 
-  // provided by the bootloader
-  abs_os::init();
-  let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-  let mut mapper = unsafe { memory::init(phys_mem_offset) };
-  let mut frame_allocator = unsafe {
-    BootInfoFrameAllocator::init(&boot_info.memory_map)
-  };
+    // Initialize the OS and the
+    // frame allocator with the
+    // physical memory offset
+    // provided by the bootloader
+    abs_os::init();
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) };
 
-  // Initialize the heap using the 
-  // frame allocator and the memory
-  // mapper created.
-  allocator::init_heap(&mut mapper, &mut frame_allocator)
-      .expect("heap initialization failed");
+    // Initialize the heap using the
+    // frame allocator and the memory
+    // mapper created.
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
-  // Run the tests
-  test_main();
+    // Run the tests
+    test_main();
 
-  loop {}
+    loop {}
 }
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-  abs_os::test_panic_handler(info)
+    abs_os::test_panic_handler(info)
 }
 
 //// TESTS
@@ -65,10 +59,10 @@ fn panic(info: &PanicInfo) -> ! {
 // are asserted on.
 #[test_case]
 fn simple_allocation() {
-  let heap_value_1 = Box::new(41);
-  let heap_value_2 = Box::new(13);
-  assert_eq!(41, *heap_value_1);
-  assert_eq!(13, *heap_value_2);
+    let heap_value_1 = Box::new(41);
+    let heap_value_2 = Box::new(13);
+    assert_eq!(41, *heap_value_1);
+    assert_eq!(13, *heap_value_2);
 }
 
 // A vector is created and the
@@ -76,12 +70,12 @@ fn simple_allocation() {
 // to the expected value.
 #[test_case]
 fn large_vec() {
-  let n = 1000;
-  let mut vec = Vec::new();
-  for i in 0..n {
-    vec.push(i);
-  }
-  assert_eq!(vec.iter().sum::<u64>(), (n - 1) * n / 2);
+    let n = 1000;
+    let mut vec = Vec::new();
+    for i in 0..n {
+        vec.push(i);
+    }
+    assert_eq!(vec.iter().sum::<u64>(), (n - 1) * n / 2);
 }
 
 // Many box allocations are made
@@ -92,10 +86,10 @@ fn large_vec() {
 // when the variable x goes out of scope.
 #[test_case]
 fn many_boxes() {
-  for i in 0..HEAP_SIZE {
-    let x = Box::new(i);
-    assert_eq!(*x, i);
-  }
+    for i in 0..HEAP_SIZE {
+        let x = Box::new(i);
+        assert_eq!(*x, i);
+    }
 }
 
 // Tests that memory is able to
@@ -103,32 +97,10 @@ fn many_boxes() {
 // allocations and frees in a loop.
 #[test_case]
 fn many_boxes_long_lived() {
-  let long_lived = Box::new(1);
-  for i in 0..HEAP_SIZE {
-    let x = Box::new(i);
-    assert_eq!(*x, i);
-  }
-  assert_eq!(*long_lived, 1);
+    let long_lived = Box::new(1);
+    for i in 0..HEAP_SIZE {
+        let x = Box::new(i);
+        assert_eq!(*x, i);
+    }
+    assert_eq!(*long_lived, 1);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

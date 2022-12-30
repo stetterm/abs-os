@@ -1,26 +1,25 @@
-
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 // The list of 16 supported
 // text colors by the os
 pub enum Color {
-  Black = 0,
-  Blue = 1,
-  Green = 2,
-  Cyan = 3,
-  Red = 4,
-  Magenta = 5,
-  Brown = 6,
-  LightGray = 7,
-  DarkGray = 8,
-  LightBlue = 9,
-  LightGreen = 10,
-  LightCyan = 11,
-  LightRed = 12,
-  Pink = 13,
-  Yellow = 14,
-  White = 15,
+    Black = 0,
+    Blue = 1,
+    Green = 2,
+    Cyan = 3,
+    Red = 4,
+    Magenta = 5,
+    Brown = 6,
+    LightGray = 7,
+    DarkGray = 8,
+    LightBlue = 9,
+    LightGreen = 10,
+    LightCyan = 11,
+    LightRed = 12,
+    Pink = 13,
+    Yellow = 14,
+    White = 15,
 }
 
 // ColorCode is a wrapper for u8
@@ -32,9 +31,9 @@ struct ColorCode(u8);
 // with the specified background and
 // foreground color
 impl ColorCode {
-  fn new (foreground: Color, background: Color) -> ColorCode {
-    ColorCode((background as u8) << 4 | (foreground as u8))
-  }
+    fn new(foreground: Color, background: Color) -> ColorCode {
+        ColorCode((background as u8) << 4 | (foreground as u8))
+    }
 }
 
 // Stores the ascii character
@@ -44,8 +43,8 @@ impl ColorCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 struct ScreenChar {
-  ascii_character: u8,
-  color_code: ColorCode,
+    ascii_character: u8,
+    color_code: ColorCode,
 }
 
 const BUFFER_HEIGHT: usize = 25;
@@ -57,9 +56,8 @@ use volatile::Volatile;
 // is created for writing characters
 #[repr(transparent)]
 struct Buffer {
-  chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
-
 
 // The writer keeps track of the
 // position, the current color
@@ -67,10 +65,10 @@ struct Buffer {
 // to that is static for each
 // execution
 pub struct Writer {
-  column_position: usize,
-  row_position: usize,
-  color_code: ColorCode,
-  buffer: &'static mut Buffer,
+    column_position: usize,
+    row_position: usize,
+    color_code: ColorCode,
+    buffer: &'static mut Buffer,
 }
 
 use lazy_static::lazy_static;
@@ -83,12 +81,12 @@ use spin::Mutex;
 // variables are generally a bad idea,
 // so a mutex is requires here
 lazy_static! {
-  pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
-    column_position: 0,
-    row_position: BUFFER_HEIGHT - 1,
-    color_code: ColorCode::new(Color::White, Color::Black),
-    buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
-  });
+    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
+        column_position: 0,
+        row_position: BUFFER_HEIGHT - 1,
+        color_code: ColorCode::new(Color::White, Color::Black),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+    });
 }
 
 #[macro_export]
@@ -104,203 +102,191 @@ macro_rules! println {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-  use core::fmt::Write;
-  use x86_64::instructions::interrupts;
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
 
-  // disable interrupts to prevent
-  // deadlocks from happening from
-  // printing text.
-  interrupts::without_interrupts(|| {
-    WRITER.lock().write_fmt(args).unwrap();
-  });
+    // disable interrupts to prevent
+    // deadlocks from happening from
+    // printing text.
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 impl Writer {
+    /// Function to write a byte to the
+    /// screen. This will put the character
+    /// at the position of the cursor, and
+    /// increment the cursor.
+    /// byte:     character to write
+    pub fn write_byte(&mut self, byte: u8) {
+        match byte {
+            // If the byte is a new line,
+            // skip a line
+            b'\n' => self.new_line(),
 
-  /// Function to write a byte to the
-  /// screen. This will put the character
-  /// at the position of the cursor, and
-  /// increment the cursor.
-  /// byte:     character to write
-  pub fn write_byte(&mut self, byte: u8) {
-    match byte {
+            // For all other bytes, write
+            // the character into the buffer
+            // in the writer, and increment
+            // the column position
+            byte => {
+                // If the cursor is at the end
+                // of the line, skip a line
+                if self.column_position >= BUFFER_WIDTH {
+                    self.new_line();
+                }
 
-      // If the byte is a new line,
-      // skip a line
-      b'\n' => self.new_line(),
-      
-      // For all other bytes, write
-      // the character into the buffer
-      // in the writer, and increment
-      // the column position
-      byte => {
+                let row = self.row_position;
+                let col = self.column_position;
+                let color_code = self.color_code;
 
-        // If the cursor is at the end
-        // of the line, skip a line
-        if self.column_position >= BUFFER_WIDTH {
-          self.new_line();
+                // Write the character into
+                // the buffer using the current
+                // color, and increment the column number
+                self.buffer.chars[row][col].write(ScreenChar {
+                    ascii_character: byte,
+                    color_code,
+                });
+                self.column_position += 1;
+            }
+        }
+    }
+
+    /// Write a string of bytes
+    /// into the vga buffer.
+    /// s:    string to print
+    pub fn write_string(&mut self, s: &str) {
+        for byte in s.bytes() {
+            match byte {
+                // Print all printable characters
+                0x20..=0x7e | b'\n' => self.write_byte(byte),
+
+                // If the character is 0x08,
+                // do a backspace.
+                // TODO Make backspace go up one row
+                // if the cursor is at the far left
+                // of the "screen"
+                0x08 => self.backspace(),
+
+                // Print 0x7e if not printable
+                _ => self.write_byte(0xfe),
+            }
+        }
+    }
+
+    /// Skips a line on the VGA
+    /// buffer. This requires copying
+    /// the rows to the row above
+    /// and clearing the last row.
+    fn new_line(&mut self) {
+        // Copy each row to the row
+        // above it, stopping before
+        // the bottom row.
+        for row in 1..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                let character = self.buffer.chars[row][col].read();
+                self.buffer.chars[row - 1][col].write(character);
+            }
         }
 
-        let row = self.row_position;
-        let col = self.column_position;
-        let color_code = self.color_code;
+        // Clear the bottom row.
+        self.clear_row(BUFFER_HEIGHT - 1);
 
-        // Write the character into
-        // the buffer using the current
-        // color, and increment the column number
+        // Set the cursor position to
+        // the start of the new line.
+        self.column_position = 0;
+        if self.row_position < BUFFER_HEIGHT - 1 {
+            self.row_position += 1;
+        }
+    }
+
+    /// Function called to delete a
+    /// character at the specified
+    /// row and column position in
+    /// the VGA buffer. This is
+    /// accomplished by writing a
+    /// space character in place
+    /// of the existing character.
+    ///
+    /// row:      row position
+    /// col:      column position
+    fn delete_char(&mut self, row: usize, col: usize) {
         self.buffer.chars[row][col].write(ScreenChar {
-          ascii_character: byte,
-          color_code,
+            ascii_character: b' ',
+            color_code: self.color_code,
         });
-        self.column_position += 1;
-      }
-    }
-  }
-
-  /// Write a string of bytes
-  /// into the vga buffer.
-  /// s:    string to print
-  pub fn write_string(&mut self, s: &str) {
-    for byte in s.bytes() {
-      match byte {
-
-        // Print all printable characters
-        0x20..=0x7e | b'\n' => self.write_byte(byte),
-
-        // If the character is 0x08,
-        // do a backspace.
-        // TODO Make backspace go up one row
-        // if the cursor is at the far left 
-        // of the "screen"
-        0x08 => self.backspace(),
-
-        // Print 0x7e if not printable
-        _ => self.write_byte(0xfe),
-      }
-    }
-  }
-
-  /// Skips a line on the VGA
-  /// buffer. This requires copying
-  /// the rows to the row above
-  /// and clearing the last row.
-  fn new_line(&mut self) {
-
-    // Copy each row to the row
-    // above it, stopping before
-    // the bottom row.
-    for row in 1..BUFFER_HEIGHT {
-      for col in 0..BUFFER_WIDTH {
-        let character = self.buffer.chars[row][col].read();
-        self.buffer.chars[row - 1][col].write(character);
-      }
     }
 
-    // Clear the bottom row.
-    self.clear_row(BUFFER_HEIGHT - 1);
-
-    // Set the cursor position to
-    // the start of the new line.
-    self.column_position = 0;
-    if self.row_position < BUFFER_HEIGHT - 1 {
-      self.row_position += 1;
-    }
-  }
-
-  /// Function called to delete a
-  /// character at the specified
-  /// row and column position in
-  /// the VGA buffer. This is 
-  /// accomplished by writing a 
-  /// space character in place
-  /// of the existing character.
-  ///
-  /// row:      row position
-  /// col:      column position
-  fn delete_char(&mut self, row: usize, col: usize) {
-    self.buffer.chars[row][col].write(
-      ScreenChar {
-        ascii_character: b' ',
-        color_code: self.color_code,
-      }
-    );
-  }
-
-  /// Clear the provided row
-  /// of the VGA buffer by filling
-  /// it with space characters.
-  /// row:      row number to clear
-  fn clear_row(&mut self, row: usize) {
-    for col in 0..BUFFER_WIDTH {
-      self.delete_char(row, col);
-    }
-  }
-
-  /// Called when a backspace character
-  /// is entered. Deletes the previous
-  /// character and moves the cursor 
-  /// position back. If the cursor is
-  /// at the beginning of the first line,
-  /// nothing happens.
-  fn backspace(&mut self) {
-
-    // If the cursor is at the start
-    // of the line, it needs to wrap
-    // around to the end of the 
-    // previous line.
-    if self.column_position == 0 {
-      if self.row_position == 0 {
-        return;
-      }
-     
-      // Move the cursor to the end
-      // of the previous line and 
-      // delete the character
-      self.row_position -= 1;
-      self.column_position = BUFFER_WIDTH - 1;
-
-    } else {
-      
-      // If the cursor is not at
-      // the start of the line, 
-      // move it back one column position
-      self.column_position -= 1;
+    /// Clear the provided row
+    /// of the VGA buffer by filling
+    /// it with space characters.
+    /// row:      row number to clear
+    fn clear_row(&mut self, row: usize) {
+        for col in 0..BUFFER_WIDTH {
+            self.delete_char(row, col);
+        }
     }
 
-    // Delete the character at the cursor position
-    self.delete_char(
-        self.row_position, self.column_position
-    );
-  }
+    /// Called when a backspace character
+    /// is entered. Deletes the previous
+    /// character and moves the cursor
+    /// position back. If the cursor is
+    /// at the beginning of the first line,
+    /// nothing happens.
+    fn backspace(&mut self) {
+        // If the cursor is at the start
+        // of the line, it needs to wrap
+        // around to the end of the
+        // previous line.
+        if self.column_position == 0 {
+            if self.row_position == 0 {
+                return;
+            }
+
+            // Move the cursor to the end
+            // of the previous line and
+            // delete the character
+            self.row_position -= 1;
+            self.column_position = BUFFER_WIDTH - 1;
+        } else {
+            // If the cursor is not at
+            // the start of the line,
+            // move it back one column position
+            self.column_position -= 1;
+        }
+
+        // Delete the character at the cursor position
+        self.delete_char(self.row_position, self.column_position);
+    }
 }
 
-// Implements usage of the vga 
+// Implements usage of the vga
 // buffer using write macro like
 // the following:
 //      write!(writer, "I have {} apples", 12);
 use core::fmt;
 impl fmt::Write for Writer {
-  fn write_str(&mut self, s: &str) -> fmt::Result {
-    self.write_string(s);
-    Ok(())
-  }
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_string(s);
+        Ok(())
+    }
 }
 
 // Test ensures that a single print
 // macro call will not panic.
 #[test_case]
 fn test_println_simple() {
-  println!("test_println_simple output");
+    println!("test_println_simple output");
 }
 
 // Test ensures that many print
-// statements will not cause a 
+// statements will not cause a
 // panic.
 #[test_case]
 fn test_println_many() {
-  for _ in 0..200 {
-    println!("test_println_simple output");
-  }
+    for _ in 0..200 {
+        println!("test_println_simple output");
+    }
 }
 
 // Prints out a single-line string
@@ -309,30 +295,16 @@ fn test_println_many() {
 // passed to the println! macro.
 #[test_case]
 fn test_println_output() {
-  use core::fmt::Write;
-  use x86_64::instructions::interrupts;
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
 
-  let s = "Here are some words in a string for testing";
-  interrupts::without_interrupts(|| {
-    let mut writer = WRITER.lock();
-    writeln!(writer, "\n{}", s).expect("writeln failed");
-    for (i, c) in s.chars().enumerate() {
-      let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
-      assert_eq!(char::from(screen_char.ascii_character), c);
-    }
-  });
+    let s = "Here are some words in a string for testing";
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    });
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
