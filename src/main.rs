@@ -11,7 +11,10 @@
 
 extern crate alloc;
 
-use abs_os::println;
+use abs_os::{
+    println,
+    task::{simple_executor::SimpleExecutor, Task},
+};
 
 use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::{entry_point, BootInfo};
@@ -42,44 +45,24 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     allocator::init_heap(&mut mapper, &mut frame_allocator).expect("failed to initialize heap");
 
-    // Allocate an integer on
-    // the heap and print out
-    // the pointer value
-    let x = Box::new(41);
-    println!("x at {:p}", x);
-
-    // Allocate a vector in
-    // the heap with 500 elements
-    let mut vec = Vec::new();
-    for i in 0..500 {
-        vec.push(i);
-    }
-    println!("vec at {:p}", vec.as_slice());
-
-    // Created a reference counted
-    // pointer around a new vector
-    // and clone the reference to
-    // another variable. Drop the
-    // original variable, and the
-    // reference count should be
-    // down to 1.
-    let reference_counted = Rc::new(vec![1, 2, 3]);
-    let cloned_reference = reference_counted.clone();
-    println!(
-        "current reference count is {}",
-        Rc::strong_count(&cloned_reference)
-    );
-    core::mem::drop(reference_counted);
-    println!(
-        "reference count is {} now",
-        Rc::strong_count(&cloned_reference)
-    );
+    let mut executor = SimpleExecutor::new();
+    executor.spawn(Task::new(example_task()));
+    executor.run();
 
     #[cfg(test)]
     test_main();
 
     println!("abs_os did not crash");
     abs_os::hlt_loop();
+}
+
+async fn async_number() -> u32 {
+  42
+}
+
+async fn example_task() {
+  let number = async_number().await;
+  println!("async number: {}", number);
 }
 
 // Called on panic
