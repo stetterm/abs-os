@@ -13,7 +13,7 @@ extern crate alloc;
 
 use abs_os::{
     println,
-    task::{simple_executor::SimpleExecutor, Task},
+    task::{keyboard, executor::Executor, Task},
 };
 
 use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
@@ -45,8 +45,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     allocator::init_heap(&mut mapper, &mut frame_allocator).expect("failed to initialize heap");
 
-    let mut executor = SimpleExecutor::new();
+    let mut executor = Executor::new();
     executor.spawn(Task::new(example_task()));
+    executor.spawn(Task::new(keyboard::print_keypresses()));
     executor.run();
 
     #[cfg(test)]

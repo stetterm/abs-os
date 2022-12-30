@@ -8,10 +8,6 @@ edition = "2018"
 [build]
 target = "x86_64-abs_os.json"
 
-[dependencies.lazy_static]
-version = "1.0"
-features = ["spin_no_std"]
-
 [dependencies]
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
 linked_list_allocator = "0.9.0"
@@ -21,6 +17,24 @@ spin = "0.5.2"
 uart_16550 = "0.2.0"
 volatile = "0.2.6"
 x86_64 = "0.14.2"
+
+[dependencies.conquer-once]
+version = "0.2.0"
+default-features = false
+
+[dependencies.crossbeam-queue]
+version = "0.2.1"
+default-features = false
+features = ["alloc"]
+
+[dependencies.futures-util]
+version = "0.3.4"
+default-features = false
+features = ["alloc"]
+
+[dependencies.lazy_static]
+version = "1.0"
+features = ["spin_no_std"]
 
 [package.metadata.bootimage]
 test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
